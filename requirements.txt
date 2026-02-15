@@ -1,0 +1,17 @@
+ray[data,train,tune,serve,llm]
+transformers
+torch
+loguru
+easydict
+pandas
+verl
+pyyaml
+openai
+tqdm
+hydra-core
+omegaconf
+fsspec
+sentence-transformers
+aiohttp
+jieba
+nltk

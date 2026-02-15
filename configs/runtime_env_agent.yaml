@@ -1,0 +1,12 @@
+working_dir: ./
+excludes: ["/.git/", "**/*log*", "log_*", "*.log", "*.jsonl", "*.parquet", "*.json", "*.whl"]
+env_vars:
+  TORCH_NCCL_AVOID_RECORD_STREAMS: "1"
+  VLLM_USE_V1: "1"
+  VLLM_WORKER_MULTIPROC_METHOD: "spawn"
+  HYDRA_FULL_ERROR: "1"
+  GENRANK_REWARD_MODE: "paper"
+  WORKING_AGENT_API_URL: "http://xxxxxx"
+  WORKING_AGENT_API_KEY: "sk-xxxxxx"
+  WORKING_AGENT_MODEL_NAME: "Qwen/Qwen3-30B-A3B-Instruct-2507"
+  EVAL_SCORE_METHOD: "f1"

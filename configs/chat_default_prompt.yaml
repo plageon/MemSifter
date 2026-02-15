@@ -1,0 +1,19 @@
+version: "0.1"
+prompt_name: "chat_default_prompt"
+language: "en"
+description: "A prompt template for chatbot to answer questions based on the relevant chat history."
+# --------------------------------------------------------------------------
+# Prompt Configuration: 定义 Prompt 的输入变量和文本内容
+# --------------------------------------------------------------------------
+prompt_template:
+  system_prompt_text: |
+    You are a helpful assistant.
+
+  user_prompt_text: |
+    I will give you several history chats between you and a user. Please answer the question based on the relevant chat history. Provide your final answer wrapped in <answer> ... </answer>.
+    
+    History Chats: {history_chats}
+    
+    Question: {question}
+    
+    Please provide your final answer wrapped in <answer> ... </answer>.

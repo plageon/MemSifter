@@ -1,0 +1,6 @@
+working_dir: ./
+excludes: ["/.git/", "**/*log*", "log_*", "*.log", "*.jsonl", "*.parquet", "**/data/*.json", "*.whl"]
+env_vars:
+  HYDRA_FULL_ERROR: "1"
+  BASE_URL: "http://xxxxxx"
+  API_KEY: "sk-xxxxxx"

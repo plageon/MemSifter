@@ -1,7 +1,7 @@
 """
-论文奖励设计实现 - Net Memory Segment Contribution + Discriminative Retrieved Ranking
+任务奖励设计实现 - Net Memory Segment Contribution + Discriminative Retrieved Ranking
 
-论文核心公式：
+核心公式：
     R_ans = Σ(i=1 to N) w_i * (s_F(i) - s_0)
     
 其中：
@@ -238,21 +238,21 @@ def compute_task_score(
         return calculate_f1(agent_answer, gold_answer, is_chinese)
 
 
-# ============== 论文奖励计算核心函数 ==============
+# ============== 任务奖励计算核心函数 ==============
 
-def compute_paper_reward_from_scores(
+def compute_task_reward_from_scores(
     tier_scores: Dict[int, float],
     score_method: str = "weighted_sum",
 ) -> float:
     """
-    根据各层级分数计算论文奖励
+    根据各层级分数计算任务奖励
     
     R_ans = Σ(i=1 to N) w_i * s_F(i)
     
     Args:
         tier_scores: {tier: score} 字典，其中 tier=0 表示 s_0
         score_method: 计算方法
-            - "weighted_sum": 论文公式的加权求和
+            - "weighted_sum": 加权求和公式
             - "max_gain": 使用最大增益
             
     Returns:
@@ -275,7 +275,7 @@ def compute_paper_reward_from_scores(
         max_gain = max(tier_scores[t] - s_0 for t in tiers)
         return max(0.0, max_gain)
     
-    # 论文公式：加权求和
+    # 加权求和公式
     # R_ans = Σ w_i * (s_F(i) - s_0)
     
     # 计算权重
@@ -305,7 +305,7 @@ def compute_paper_reward_from_scores(
     return R_ans
     
 
-async def compute_paper_reward_async(
+async def compute_task_reward_async(
     solution_str: str,
     reward_model_info: Dict[str, Any],
     working_agent_client: WorkingAgentClient,
@@ -313,7 +313,7 @@ async def compute_paper_reward_async(
     max_ranking_len: int = 10,
 ) -> Tuple[float, Dict[str, Any]]:
     """
-    异步计算论文奖励分数
+    异步计算任务奖励分数
     
     Args:
         solution_str: 模型输出的排名结果字符串
@@ -396,8 +396,8 @@ async def compute_paper_reward_async(
             tier_scores[tier] = 0.0
             tier_answers[tier] = ""
     
-    # Step 6: 计算论文奖励
-    reward = compute_paper_reward_from_scores(tier_scores, score_method="weighted_sum")
+    # Step 6: 计算任务奖励
+    reward = compute_task_reward_from_scores(tier_scores, score_method="weighted_sum")
     
     # 调试信息
     debug_info = {
@@ -412,7 +412,7 @@ async def compute_paper_reward_async(
     return reward, debug_info
 
 
-def compute_paper_reward_sync(
+def compute_task_reward_sync(
     solution_str: str,
     reward_model_info: Dict[str, Any],
     working_agent_client: WorkingAgentClient,
@@ -420,10 +420,10 @@ def compute_paper_reward_sync(
     max_ranking_len: int = 10,
 ) -> Tuple[float, Dict[str, Any]]:
     """
-    同步版本的论文奖励计算
+    同步版本的任务奖励计算
     """
     return asyncio.run(
-        compute_paper_reward_async(
+        compute_task_reward_async(
             solution_str,
             reward_model_info,
             working_agent_client,
@@ -449,7 +449,7 @@ def init_working_agent_client(
     初始化全局 Working Agent 客户端
     
     注意：prompt 配置不再在初始化时绑定，而是根据每条数据的 data_source 动态加载。
-    data_source 应该包含在 reward_model_info 中传递给 compute_paper_reward_sync。
+    data_source 应该包含在 reward_model_info 中传递给 compute_task_reward_sync。
     
     Args:
         api_url: LLM API 地址
@@ -467,7 +467,7 @@ def init_working_agent_client(
     logger.info(f"Initialized Working Agent client: {api_url}, model: {model_name}, config_dir: {config_dir}")
 
 
-def compute_score_paper_reward(
+def compute_score_task_reward(
     data_source,
     solution_str,
     ground_truth,
@@ -478,7 +478,7 @@ def compute_score_paper_reward(
     **kwargs,
 ) -> float:
     """
-    与现有接口兼容的论文奖励计算函数
+    与现有接口兼容的任务奖励计算函数
     
     注意：此函数需要 reward_model_info 包含完整信息（question, sessions, task_answer 等）
     如果 Working Agent 客户端未初始化，将回退到原有的 DCG 评分
@@ -492,7 +492,7 @@ def compute_score_paper_reward(
     if not reward_model_info:
         reward_model_info = {"ground_truth": ground_truth}
     
-    # 检查是否有足够的信息进行论文奖励计算
+    # 检查是否有足够的信息进行任务奖励计算
     has_full_info = all([
         reward_model_info.get("question"),
         reward_model_info.get("sessions"),
@@ -513,9 +513,9 @@ def compute_score_paper_reward(
             **kwargs,
         )
     
-    # 使用论文奖励计算
+    # 使用任务奖励计算
     try:
-        reward, debug_info = compute_paper_reward_sync(
+        reward, debug_info = compute_task_reward_sync(
             solution_str,
             reward_model_info,
             _global_working_agent_client,
@@ -524,12 +524,12 @@ def compute_score_paper_reward(
         )
         
         if kwargs.get("debug", False):
-            logger.info(f"Paper reward debug: {debug_info}")
+            logger.info(f"Task reward debug: {debug_info}")
         
         return reward
         
     except Exception as e:
-        logger.error(f"Paper reward computation failed: {e}, falling back to DCG")
+        logger.error(f"Task reward computation failed: {e}, falling back to DCG")
         from genrank_verl.genrank_reward_score import compute_score_instruct
         return compute_score_instruct(
             data_source,
@@ -559,9 +559,9 @@ def test_reward_calculation():
         8: 0.75,  # s_8: 8 条记忆
     }
     
-    reward = compute_paper_reward_from_scores(mock_tier_scores)
+    reward = compute_task_reward_from_scores(mock_tier_scores)
     print(f"Mock tier scores: {mock_tier_scores}")
-    print(f"Computed paper reward: {reward:.4f}")
+    print(f"Computed task reward: {reward:.4f}")
 
 
 def test_text_similarity():
@@ -596,7 +596,7 @@ async def test_full_pipeline_async(api_url: str, model_name: str, data_source: s
     1. 构造模拟的 sessions 和 question
     2. 解析 solution_str 获取 ranking
     3. 使用 FibonacciTierEvaluator 评估各层级
-    4. 计算最终的论文奖励
+    4. 计算最终的任务奖励
     
     Args:
         api_url: LLM API 地址
@@ -747,7 +747,7 @@ async def test_full_pipeline_async(api_url: str, model_name: str, data_source: s
     }
     
     # 使用拼接后的完整 solution_str（包含 <think> 前缀）
-    reward_good, debug_info_good = await compute_paper_reward_async(
+    reward_good, debug_info_good = await compute_task_reward_async(
         solution_str=good_solution_str,
         reward_model_info=reward_model_info_good,
         working_agent_client=client,
@@ -781,7 +781,7 @@ async def test_full_pipeline_async(api_url: str, model_name: str, data_source: s
     }
     
     # 使用拼接后的完整 solution_str（包含 <think> 前缀）
-    reward_bad, debug_info_bad = await compute_paper_reward_async(
+    reward_bad, debug_info_bad = await compute_task_reward_async(
         solution_str=bad_solution_str,
         reward_model_info=reward_model_info_bad,
         working_agent_client=client,
@@ -810,7 +810,7 @@ async def test_full_pipeline_async(api_url: str, model_name: str, data_source: s
     print(f"  Difference:          {reward_good - reward_bad:+.4f}")
     
     if reward_good > reward_bad:
-        print("\n  ✓ Paper reward correctly assigns higher score to good ranking!")
+        print("\n  ✓ Task reward correctly assigns higher score to good ranking!")
     else:
         print("\n  ✗ Warning: Bad ranking got higher score. Check the data or model.")
     
@@ -916,7 +916,7 @@ async def test_chinese_pipeline_async(api_url: str, model_name: str, data_source
     }
     
     # 使用拼接后的完整 solution_str
-    reward, debug_info = await compute_paper_reward_async(
+    reward, debug_info = await compute_task_reward_async(
         solution_str=good_solution_str,
         reward_model_info=reward_model_info,
         working_agent_client=client,
@@ -953,7 +953,7 @@ def test_chinese_pipeline_sync(api_url: str, model_name: str, data_source: str =
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description="Paper Reward Score Tests")
+    parser = argparse.ArgumentParser(description="Task Reward Score Tests")
     parser.add_argument("--api_url", type=str, default="http://172.16.77.93:8000",
                         help="LLM API URL")
     parser.add_argument("--model_name", type=str, default="Qwen/Qwen3-30B-A3B-Instruct-2507",

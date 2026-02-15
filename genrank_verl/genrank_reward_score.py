@@ -3,13 +3,13 @@ GenRank 奖励计算模块
 
 支持两种奖励计算方式：
 1. DCG 模式（默认）：基于排名的 DCG 分数，直接比较预测排名与真实答案
-2. Paper 模式：论文中的 Net Memory Segment Contribution + Discriminative Retrieved Ranking
+2. Task 模式：论文中的 Net Memory Segment Contribution + Discriminative Retrieved Ranking
 
 通过环境变量 GENRANK_REWARD_MODE 切换：
 - GENRANK_REWARD_MODE=dcg (默认)
-- GENRANK_REWARD_MODE=paper
+- GENRANK_REWARD_MODE=task
 
-Paper 模式需要额外配置：
+Task 模式需要额外配置：
 - WORKING_AGENT_API_URL: Working Agent LLM API 地址
 - WORKING_AGENT_MODEL_NAME: Working Agent 模型名称
 - EVAL_SCORE_METHOD: 评估方法 (f1, rouge_l, llm_judge)
@@ -24,11 +24,11 @@ sys.path.append("./")
 
 # 奖励模式
 REWARD_MODE_DCG = "dcg"
-REWARD_MODE_PAPER = "paper"
+REWARD_MODE_TASK = "task"
 
 # 全局配置
 _reward_mode: str = os.environ.get("GENRANK_REWARD_MODE", REWARD_MODE_DCG)
-_paper_reward_initialized: bool = False
+_task_reward_initialized: bool = False
 
 
 def get_reward_mode() -> str:
@@ -40,41 +40,41 @@ def get_reward_mode() -> str:
 def set_reward_mode(mode: str):
     """设置奖励模式"""
     global _reward_mode
-    if mode not in [REWARD_MODE_DCG, REWARD_MODE_PAPER]:
-        raise ValueError(f"Invalid reward mode: {mode}. Must be 'dcg' or 'paper'")
+    if mode not in [REWARD_MODE_DCG, REWARD_MODE_TASK]:
+        raise ValueError(f"Invalid reward mode: {mode}. Must be 'dcg' or 'task'")
     _reward_mode = mode
     logger.info(f"Reward mode set to: {mode}")
 
 
-def init_paper_reward_mode(
+def init_task_reward_mode(
     working_agent_api_url: Optional[str] = None,
     working_agent_model_name: Optional[str] = None,
     **kwargs
 ):
     """
-    初始化 Paper 奖励模式
+    初始化 Task 奖励模式
     
     Args:
         working_agent_api_url: Working Agent LLM API 地址
         working_agent_model_name: Working Agent 模型名称
         **kwargs: 其他 WorkingAgentConfig 参数
     """
-    global _paper_reward_initialized
+    global _task_reward_initialized
     
     api_url = working_agent_api_url or os.environ.get("WORKING_AGENT_API_URL")
     model_name = working_agent_model_name or os.environ.get("WORKING_AGENT_MODEL_NAME")
     
     if not api_url or not model_name:
-        logger.warning("Paper reward mode requires WORKING_AGENT_API_URL and WORKING_AGENT_MODEL_NAME")
+        logger.warning("Task reward mode requires WORKING_AGENT_API_URL and WORKING_AGENT_MODEL_NAME")
         return
     
     try:
-        from genrank_verl.genrank_reward_score_paper import init_working_agent_client
+        from genrank_verl.task_reward_score import init_working_agent_client
         init_working_agent_client(api_url, model_name, **kwargs)
-        _paper_reward_initialized = True
-        logger.info(f"Paper reward mode initialized: api_url={api_url}, model={model_name}")
+        _task_reward_initialized = True
+        logger.info(f"Task reward mode initialized: api_url={api_url}, model={model_name}")
     except Exception as e:
-        logger.error(f"Failed to initialize paper reward mode: {e}")
+        logger.error(f"Failed to initialize task reward mode: {e}")
 
 
 def calculate_dcg(gold_turns: list, pred_turns: list):
@@ -230,9 +230,9 @@ def compute_score_thinking(
     )
 
 
-# ============== 论文奖励模式计算函数 ==============
+# ============== 任务奖励模式计算函数 ==============
 
-def compute_score_paper(
+def compute_score_task(
     data_source,
     solution_str,
     ground_truth,
@@ -243,27 +243,27 @@ def compute_score_paper(
     **kwargs,
 ):
     """
-    论文奖励模式计算函数
+    任务奖励模式计算函数
     
     使用 Net Memory Segment Contribution + Discriminative Retrieved Ranking 计算奖励。
     需要 reward_model_info 包含完整信息（question, sessions, task_answer 等）。
     """
-    global _paper_reward_initialized
+    global _task_reward_initialized
     
     # 检查是否初始化
-    if not _paper_reward_initialized:
+    if not _task_reward_initialized:
         # 尝试自动初始化
-        init_paper_reward_mode()
+        init_task_reward_mode()
     
     try:
-        from genrank_verl.genrank_reward_score_paper import compute_score_paper_reward
+        from genrank_verl.task_reward_score import compute_score_task_reward
         
         # 从 kwargs 获取 reward_model_info
         reward_model_info = kwargs.get("reward_model_info", {})
         if not reward_model_info:
             reward_model_info = {"ground_truth": ground_truth}
         
-        return compute_score_paper_reward(
+        return compute_score_task_reward(
             data_source,
             solution_str,
             ground_truth,
@@ -275,7 +275,7 @@ def compute_score_paper(
             **kwargs,
         )
     except Exception as e:
-        logger.warning(f"Paper reward computation failed: {e}, falling back to DCG")
+        logger.warning(f"Task reward computation failed: {e}, falling back to DCG")
         return compute_score_instruct(
             data_source,
             solution_str,
@@ -288,7 +288,7 @@ def compute_score_paper(
         )
 
 
-def compute_score_paper_thinking(
+def compute_score_task_thinking(
     data_source,
     solution_str,
     ground_truth,
@@ -298,9 +298,9 @@ def compute_score_paper_thinking(
     memory_limit_mb=None,
     **kwargs,
 ):
-    """论文奖励模式 + Thinking 格式"""
+    """任务奖励模式 + Thinking 格式"""
     solution_str = "<think>" + solution_str
-    return compute_score_paper(
+    return compute_score_task(
         data_source,
         solution_str,
         ground_truth,
@@ -329,14 +329,14 @@ def compute_score(
     
     根据环境变量 GENRANK_REWARD_MODE 自动选择计算方式：
     - dcg: 使用 DCG 分数（默认）
-    - paper: 使用论文中的 Net Memory Segment Contribution + Discriminative Retrieved Ranking
+    - task: 使用论文中的 Net Memory Segment Contribution + Discriminative Retrieved Ranking
     
     也可以通过 kwargs 中的 reward_mode 参数指定。
     """
     mode = kwargs.pop("reward_mode", None) or get_reward_mode()
     
-    if mode == REWARD_MODE_PAPER:
-        return compute_score_paper(
+    if mode == REWARD_MODE_TASK:
+        return compute_score_task(
             data_source,
             solution_str,
             ground_truth,
