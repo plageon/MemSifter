@@ -4,16 +4,6 @@ import os
 import sys
 from typing import Dict, Any, List
 
-# #region agent log
-DEBUG_LOG_PATH = "/volume/data-science/users/jjtan/.cursor/debug.log"
-def _debug_log(location: str, message: str, data: dict, hypothesis_id: str = ""):
-    try:
-        import json
-        with open(DEBUG_LOG_PATH, "a") as f:
-            f.write(json.dumps({"location": location, "message": message, "data": data, "hypothesisId": hypothesis_id, "sessionId": "debug-session"}) + "\n")
-    except Exception:
-        pass
-# #endregion
 
 import pandas as pd
 import yaml

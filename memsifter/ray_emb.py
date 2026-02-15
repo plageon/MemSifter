@@ -10,7 +10,7 @@ from typing import Dict, Any, List
 from loguru import logger
 import ray
 from utils.embed_utils import compute_mdhash_id
-from utils.embed_utils import EmbeddingStore  # 替换为实际模块路径
+from utils.embed_utils import EmbeddingStore  # Replace with actual module path
 from utils.session_process import construct_session_text
 from utils.embed_utils import compute_cosine_similarity, STEmbConfig, STEmbedActor
 from utils.ray_gen_utils import parse_haystack_sessions, dump_haystack_sessions
@@ -38,10 +38,10 @@ class CollectMissingTextsActor:
         question = entry["question"]
         haystack_sessions = entry["haystack_sessions"]
 
-        # 收集问题文本
+        # Collect question text
         texts.append(question)
 
-        # 收集会话文本
+        # Collect session text
         for sid, session_turns in enumerate(haystack_sessions):
             session_text = construct_session_text(session_turns)
             texts.append(session_text)
@@ -76,7 +76,7 @@ class CalculateSimilarityActor:
 
 def main(args,):
     emb_config = STEmbConfig()
-    emb_config.model_name = f"/mnt/jjtan/models/{args['embedding_model_name']}"
+    emb_config.model_name = f"../models/{args['embedding_model_name']}"
     emb_config.max_seq_len = args["max_seq_len"]
     emb_config.batch_size = args["batch_size"]
     emb_config.embedding_batch_size = args["emb_batch_size"]
@@ -156,9 +156,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process some integers.")
     parser.add_argument("--dataset_name", type=str, default="perltqa_en")
     parser.add_argument("--dataset_split", type=str, default="test")
-    parser.add_argument("--data_dir", type=str, default="../../data")
-    parser.add_argument("--output_dir", type=str, default="../../data/results")
-    parser.add_argument("--embed_store_path", type=str, default="../../data/embedding_store")
+    parser.add_argument("--data_dir", type=str, default="../data")
+    parser.add_argument("--output_dir", type=str, default="../data/results")
+    parser.add_argument("--embed_store_path", type=str, default="../data/embedding_store")
     parser.add_argument("--embedding_model_name", type=str, default="bge-m3")
     parser.add_argument("--emb_concurrency", type=int, default=8)
     parser.add_argument("--emb_batch_size", type=int, default=256)

@@ -11,7 +11,6 @@ from ray.data.llm import vLLMEngineProcessorConfig, build_llm_processor, Process
 from transformers import AutoTokenizer
 
 sys.path.append("./")
-# from utils.gen_infer_utils import TokenIdNode
 from utils.session_process import construct_history_text, construct_session_text, construct_history_text_with_limited_context
 
 def start_local_ray(envs: Dict = None):

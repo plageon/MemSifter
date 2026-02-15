@@ -43,16 +43,16 @@ def construct_history_text_with_limited_context(
         sample_strategy="random",
         session_sim_scores=None,
     ):
-    # 初始化选中的session索引列表和token计数
+    # Initialize selected session indices list and token count
     selected_session_indices = []
     total_num_tokens = 0
 
     for asidx in answer_session_idx:
-        # 确保answer_session_idx在有效范围内
+        # Ensure answer_session_idx is within valid range
         if asidx < 0 or asidx >= len(sessions):
             raise ValueError(f"answer_session_idx {asidx} out of range for sessions of length {len(sessions)}")
 
-        # 首先检查answer_session_idx对应的session的token数量
+        # First check the token count of the session corresponding to answer_session_idx
         answer_session_turns = sessions[asidx]
         answer_session_text = construct_session_text(answer_session_turns)
         if session_dates is not None:
@@ -62,14 +62,14 @@ def construct_history_text_with_limited_context(
             answer_session_text = f"<session42>\n{answer_session_text}</session>\n" # not final session idx, just a placeholder for token count
         answer_num_tokens = len(tokenizer.tokenize(answer_session_text))
 
-        # 添加answer_session的索引
+        # Add answer_session index
         selected_session_indices.append(asidx)
         total_num_tokens += answer_num_tokens
     
-    # 创建除answer_session外的其他session的索引列表
+    # Create index list for other sessions excluding answer_session
     other_session_indices = [i for i in range(len(sessions)) if i not in answer_session_idx]
     
-    # 随机打乱其他session的顺序
+    # Randomly shuffle other sessions
     if sample_strategy == "random":
         random.shuffle(other_session_indices)
     elif sample_strategy == "similarity":
@@ -79,7 +79,7 @@ def construct_history_text_with_limited_context(
     else:
         raise ValueError(f"sample_strategy {sample_strategy} not supported")
     
-    # 尝试添加其他session，直到达到token限制
+    # Try to add other sessions until reaching token limit
     for sid in other_session_indices:
         session_turns = sessions[sid]
         session_text = construct_session_text(session_turns)
@@ -90,7 +90,7 @@ def construct_history_text_with_limited_context(
             session_text = f"<session42>\n{session_text}</session>\n" # placeholder for token count
         num_tokens = len(tokenizer.tokenize(session_text))
         
-        # 如果添加这个session不会超过token限制，就添加它的索引
+        # If adding this session won't exceed token limit, add its index
         if total_num_tokens + num_tokens <= max_prompt_tokens:
             selected_session_indices.append(sid)
             total_num_tokens += num_tokens
@@ -98,7 +98,7 @@ def construct_history_text_with_limited_context(
             # break the loop if adding this session exceeds the token limit
             break
 
-    # 把选中的session索引按照原始顺序排序
+    # Sort selected session indices in original order
     selected_session_indices.sort()
     
     return selected_session_indices

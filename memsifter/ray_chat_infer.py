@@ -56,11 +56,11 @@ def construct_retrieved_history_with_limited_context(
         sample_strategy="random",
         session_sim_scores=None,
 ):
-    # 初始化选中的session索引列表和token计数
+    # Initialize selected session indices list and token count
     selected_session_indices = []
     total_num_tokens = 0
 
-    # 创建一个搜索顺序列表（存储的是索引 0, 1, 2...）
+    # Create a search order list (stores indices 0, 1, 2...)
     search_order = list(range(len(sessions)))
     assert len(sessions) == len(search_order), f"sessions length {len(sessions)} not equal to search_order length {len(search_order)}"
 
@@ -70,18 +70,18 @@ def construct_retrieved_history_with_limited_context(
         if session_sim_scores is None:
             raise ValueError("session_sim_scores must be provided when sample_strategy is 'similarity'")
 
-        # --- 修复部分开始 ---
-        # 我们根据 session_sim_scores 对索引进行排序
-        # x 代表索引(int)，session_sim_scores[x] 获取对应的分数
+        # --- Fix section start ---
+        # Sort indices based on session_sim_scores
+        # x represents index (int), session_sim_scores[x] gets the corresponding score
         search_order.sort(key=lambda x: session_sim_scores[x], reverse=True)
-        # --- 修复部分结束 ---
+        # --- Fix section end ---
 
     else:
         raise ValueError(f"sample_strategy {sample_strategy} not supported")
 
-    # 按照确定的顺序遍历（search_order 中存储的是原始索引 sid）
+    # Traverse in determined order (search_order stores original indices sid)
     for sid in search_order:
-        session_turns = sessions[sid]  # 使用原始索引获取内容
+        session_turns = sessions[sid]  # Use original index to get content
         session_text = construct_session_text(session_turns)
 
         if session_dates is not None:
@@ -92,16 +92,16 @@ def construct_retrieved_history_with_limited_context(
 
         num_tokens = len(tokenizer.tokenize(session_text))
 
-        # 如果添加这个session不会超过token限制，就添加它的索引
+        # If adding this session won't exceed token limit, add its index
         if total_num_tokens + num_tokens <= max_prompt_tokens:
             selected_session_indices.append(sid)
             total_num_tokens += num_tokens
         else:
-            # 如果是similarity策略，通常是从高分到低分，遇到一个放不下的可能后面小的能放下？
-            # 但通常为了保证相关性，这里break是合理的；如果为了塞满context，可以continue
+            # For similarity strategy, usually from high to low scores, if one doesn't fit, smaller ones later might fit?
+            # But usually to ensure relevance, break here is reasonable; if to fill context, can continue
             break
 
-    # 把选中的session索引按照原始顺序排序
+    # Sort selected session indices in original order
     selected_session_indices.sort()
 
     return selected_session_indices
@@ -202,17 +202,17 @@ class ChatInferActor:
 
     def retry_request(self, messages: List[Dict[str, str]], max_retries: int = 5) -> Any:
         """
-        使用指数退避策略重试API请求
+        Retry API request with exponential backoff strategy
         
         Args:
-            messages: 要发送的消息列表
-            max_retries: 最大重试次数
+            messages: List of messages to send
+            max_retries: Maximum number of retries
             
         Returns:
-            API响应对象
+            API response object
             
         Raises:
-            Exception: 如果所有重试都失败
+            Exception: If all retries fail
         """
         for attempt in range(max_retries):
             try:
@@ -225,16 +225,16 @@ class ChatInferActor:
                 return response
             except Exception as e:
                 if attempt == max_retries - 1:
-                    # 最后一次重试失败，抛出异常
+                    # Last retry failed, raise exception
                     raise e
                 else:
-                    # 计算指数退避等待时间 (2^(attempt) 秒)
+                    # Calculate exponential backoff wait time (2^(attempt) seconds)
                     wait_time = 2 ** attempt
-                    logger.warning(f"API调用失败 (尝试 {attempt + 1}/{max_retries}): {e}. {wait_time}秒后重试...")
+                    logger.warning(f"API call failed (attempt {attempt + 1}/{max_retries}): {e}. Retrying after {wait_time} seconds...")
                     time.sleep(wait_time)
 
     def __call__(self, row: Dict[str, Any]) -> Dict[str, Any]:
-        # 获取历史聊天记录
+        # Get history chat records
         if "history_chats" in row:
             history_chats = row["history_chats"]
         else:
@@ -254,19 +254,19 @@ class ChatInferActor:
             ]
             
             response = self.retry_request(messages)
-            generated_text = response.choices[0].message.content  # 添加generated_text字段
+            generated_text = response.choices[0].message.content  # Add generated_text field
             if "<answer>" in generated_text:
                 try:
                     generated_text_start = generated_text.find("<answer>") + len("<answer>")
                     generated_text_end = generated_text.find("</answer>")
                     generated_text = generated_text[generated_text_start:generated_text_end]
                 except:
-                    logger.info(f"<answer>标签未关闭，原始文本: {generated_text}")
+                    logger.info(f"<answer> tag not closed, original text: {generated_text}")
             row["generated_text"] = generated_text
             row["api_status"] = "success"
         except Exception as e:
-            logger.error(f"API调用失败: {e}")
-            row["generated_text"] = ""  # 失败时也设置此字段
+            logger.error(f"API call failed: {e}")
+            row["generated_text"] = ""  # Set this field even on failure
             row["api_status"] = f"error: {e}"
 
         return row
@@ -274,7 +274,7 @@ class ChatInferActor:
 
 def chat_inference(args: Dict[str, Any]):
     """
-    对话推理的主要函数
+    Main function for chat inference
     """
     input_dir = args["input_dir"]
     output_dir = args["output_dir"]
@@ -289,7 +289,7 @@ def chat_inference(args: Dict[str, Any]):
 
     # Retrieve max_input_tokens
     max_input_tokens = args.get("max_input_tokens", 8192)
-    # 构建输入和输出文件路径
+    # Build input and output file paths
     if method in ["bge-m3"]:
         input_file = f"{input_dir}/{method}/{dataset_name}_{dataset_split}_embed.parquet"
     elif method in ["hipporag", "nemori", "a_mem"]:
@@ -300,28 +300,28 @@ def chat_inference(args: Dict[str, Any]):
     output_file = f"{output_dir}/{model_name}/{method}/{dataset_name}_{dataset_split}_chat.parquet"
     os.makedirs(f"{output_dir}/{model_name}/{method}", exist_ok=True)
 
-    # 加载prompt配置
+    # Load prompt configuration
     prompt_config = load_chat_prompt(dataset_name)
-    logger.info(f"加载prompt配置完成")
+    logger.info(f"Prompt configuration loaded")
 
-    # 加载输入数据
-    logger.info(f"加载输入文件: {input_file}")
-    # 检查文件类型并使用相应的读取方法
+    # Load input data
+    logger.info(f"Loading input file: {input_file}")
+    # Check file type and use corresponding read method
     if input_file.endswith('.jsonl'):
         ds = ray.data.read_json(input_file, lines=True)
     elif input_file.endswith('.parquet'):
         ds = ray.data.read_parquet(input_file)
     else:
-        raise ValueError(f"不支持的文件格式: {input_file}")
+        raise ValueError(f"Unsupported file format: {input_file}")
 
-    logger.info(f"加载完成，共{ds.count()}条数据")
+    logger.info(f"Loaded {ds.count()} entries")
 
     if debug:
         ds = ds.limit(10)
-        logger.info(f"Debug模式启用，仅处理{ds.count()}条数据")
+        logger.info(f"Debug mode enabled, processing only {ds.count()} entries")
 
     ds = ds.map(parse_haystack_sessions)
-    # 使用ChatInferActor处理数据
+    # Use ChatInferActor to process data
     ds = ds.map(
         fn=ChatInferActor,
         fn_constructor_kwargs={
@@ -331,7 +331,7 @@ def chat_inference(args: Dict[str, Any]):
             "model_name": model_name,
             "method": method,
             "max_input_tokens": max_input_tokens,  # Added param here
-            "model_path": "/mnt/jjtan/models/Qwen3-4B-Instruct",
+            "model_path": "../models/Qwen3-4B-Instruct",
             "generation_params": {
                 "temperature": args.get("temperature", 0.6),
                 "max_tokens": args.get("max_output_tokens", 4096),
@@ -341,19 +341,19 @@ def chat_inference(args: Dict[str, Any]):
         num_cpus=0.5,
     )
 
-    # 保存结果
-    logger.info(f"保存结果到: {output_file}")
+    # Save results
+    logger.info(f"Saving results to: {output_file}")
     if output_file.endswith('.jsonl'):
         ds.to_pandas().to_json(output_file, lines=True, orient="records", force_ascii=False)
     elif output_file.endswith('.parquet'):
         ds.to_pandas().to_parquet(output_file, index=False, compression="zstd")
     else:
-        # 默认保存为JSONL格式
+        # Default to JSONL format
         ds.to_pandas().to_json(output_file, lines=True, orient="records", force_ascii=False)
 
     logger.info(f"Save results to {output_file}")
 
-    # 获取结果用于评估（可选）
+    # Get results for evaluation (optional)
     df = ds.to_pandas()
     if dataset_name in ["zh4o", "perltqa_zh"]:
         is_chinese = True
@@ -364,33 +364,33 @@ def chat_inference(args: Dict[str, Any]):
 
 
 def main():
-    # 解析命令行参数
-    parser = argparse.ArgumentParser(description="使用Ray并发调用API进行对话推理")
-    parser.add_argument("--input_dir", required=True, help="输入目录，包含嵌入文件或排名文件")
-    parser.add_argument("--output_dir", required=True, help="输出目录，保存对话结果")
-    parser.add_argument("--dataset_name", default="default", help="数据集名称，用于加载对应的prompt配置")
-    parser.add_argument("--model_name", default="gpt-3.5-turbo", help="模型名称")
-    parser.add_argument("--method", default="default", help="检索方法")
-    parser.add_argument("--num_actors", type=int, default=4, help="Ray Actor数量")
-    parser.add_argument('--debug', action="store_true", help='是否启用debug模式')
-    parser.add_argument('--local', action="store_true", help='是否采用local ray模式')
-    parser.add_argument("--concurrency", type=int, default=8, help="并发调用数量")
-    parser.add_argument("--temperature", type=float, default=0.6, help="模型温度参数")
-    parser.add_argument("--max_output_tokens", type=int, default=1024, help="最大输出token数")
-    parser.add_argument("--max_input_tokens", type=int, default=8192, help="最大输入token数")
-    parser.add_argument("--dataset_split", default="test", help="数据集划分，如train、test等")
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Chat inference using Ray concurrent API calls")
+    parser.add_argument("--input_dir", required=True, help="Input directory containing embedding or ranking files")
+    parser.add_argument("--output_dir", required=True, help="Output directory to save chat results")
+    parser.add_argument("--dataset_name", default="default", help="Dataset name for loading corresponding prompt configuration")
+    parser.add_argument("--model_name", default="gpt-3.5-turbo", help="Model name")
+    parser.add_argument("--method", default="default", help="Retrieval method")
+    parser.add_argument("--num_actors", type=int, default=4, help="Number of Ray Actors")
+    parser.add_argument('--debug', action="store_true", help='Enable debug mode')
+    parser.add_argument('--local', action="store_true", help='Use local ray mode')
+    parser.add_argument("--concurrency", type=int, default=8, help="Number of concurrent calls")
+    parser.add_argument("--temperature", type=float, default=0.6, help="Model temperature parameter")
+    parser.add_argument("--max_output_tokens", type=int, default=1024, help="Maximum output tokens")
+    parser.add_argument("--max_input_tokens", type=int, default=8192, help="Maximum input tokens")
+    parser.add_argument("--dataset_split", default="test", help="Dataset split, e.g., train, test")
 
 
     args = parser.parse_args()
 
-    # 将参数转换为字典
+    # Convert arguments to dictionary
     args_dict = vars(args)
 
-    # 如果是local模式，启动local ray
+    # If in local mode, start local ray
     if args_dict["local"]:
         start_local_ray()
 
-    # 调用chat_inference函数
+    # Call chat_inference function
     chat_inference(args_dict)
 
 

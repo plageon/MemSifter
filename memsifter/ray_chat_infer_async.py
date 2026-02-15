@@ -296,7 +296,7 @@ def chat_inference(args: Dict[str, Any]):
     dataset_split = args["dataset_split"]
     debug = args.get("debug", False)
     max_input_tokens = args.get("max_input_tokens", 8192)
-    model_path = args.get("model_path", "/mnt/jjtan/models/Qwen3-4B-Instruct")
+    model_path = args.get("model_path", "../models/Qwen3-4B-Instruct")
 
     if method in ["bge-m3"]:
         input_file = f"{input_dir}/{method}/{dataset_name}_{dataset_split}_embed.parquet"
@@ -393,7 +393,7 @@ def main():
         default=128,
         help="Number of rows per batch for inference",
     )
-    parser.add_argument("--model_path", type=str, default="/mnt/jjtan/models/Qwen3-4B-Instruct", help="Tokenizer/model path")
+    parser.add_argument("--model_path", type=str, default="../models/Qwen3-4B-Instruct", help="Tokenizer/model path")
     parser.add_argument("--api_key", type=str, default=None, help="Override API key (default: env API_KEY)")
     parser.add_argument("--base_url", type=str, default=None, help="Override base URL (default: env BASE_URL)")
     args = parser.parse_args()

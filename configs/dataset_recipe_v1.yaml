@@ -1,0 +1,31 @@
+# Example Dataset Recipe for MemSifter Training
+
+# DeepSearch datasets
+deepsearch_datasets:
+  train:
+    HotpotQA: 750
+    WebDancer: 750
+    WebWalkerQA-Silver: 750
+  test:
+    HotpotQA: 60
+    WebDancer: 60
+    WebWalkerQA-Silver: 60
+
+# Memory datasets
+memory_datasets:
+  train:
+    locomo: 500
+    split_longmemeval_s: 500
+    split_longmemeval_m: 500
+    zh4o: 500
+    personamem_128k: 600
+    personamem_1M: 600
+    personamem_v2_32k: 600
+    personamem_v2_128k: 600
+  test:
+    locomo: 60
+    split_longmemeval_s: 60
+    personamem_128k: 60
+    zh4o: 60
+    personamem_v2_128k: 60
+

@@ -330,7 +330,7 @@ def eval_prefilter_recall(data, debug: bool = False):
     return avg_prefilter_recall, avg_ndcg_without_filter
 
 if __name__ == "__main__":
-    data = [json.loads(line.strip()) for line in open("../../data/results/DAPO-GenRank/DAPO-Qwen3-4B-Thinking-merged-epoch-1/perltqa_en_test_ranking.jsonl")]
+    data = [json.loads(line.strip()) for line in open("../data/results/DAPO-GenRank/DAPO-Qwen3-4B-Thinking-merged-epoch-1/perltqa_en_test_ranking.jsonl")]
     results = eval_prefilter_recall(data)
     print(results)
 

@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Any, List
 
-# 初始化jieba分词
+# Initialize jieba tokenizer
 import jieba
 import numpy as np
 import pandas as pd
@@ -12,63 +12,63 @@ from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from pandas import DataFrame
 
 
-# 判断文本是否包含中文字符
+# Check if text contains Chinese characters
 def contains_chinese(text: str) -> bool:
-    """检查文本是否包含中文字符"""
+    """Check if text contains Chinese characters"""
     return bool(re.search(r'[\u4e00-\u9fa5]', text))
 
-# 分词函数
+# Tokenization function
 def tokenize_text(text: str, is_chinese: bool = False) -> List[str]:
-    """根据文本语言选择合适的分词方式"""
+    """Choose appropriate tokenization method based on text language"""
     if is_chinese:
-        # 使用 jieba 精确模式进行中文分词
-        # cut 返回的是一个生成器，用 list() 转换为列表
+        # Use jieba precise mode for Chinese tokenization
+        # cut returns a generator, convert to list with list()
         return list(jieba.cut(text))
     else:
-        # 英文使用 nltk 分词
+        # Use nltk for English tokenization
         words = word_tokenize(text)
         # convert to lowercase
         return [w.lower() for w in words if w.isalpha()]
 
-# 计算Exact Match
+# Calculate Exact Match
 def calculate_exact_match(pred: str, gold: str, is_chinese: bool = False) -> float:
-    """计算精确匹配分数"""
+    """Calculate exact match score"""
     return 1.0 if pred.strip() == gold.strip() else 0.0
 
-# 计算F1 Score
+# Calculate F1 Score
 def calculate_f1(pred: str, gold: str, is_chinese: bool = False) -> float:
-    """计算F1分数"""
+    """Calculate F1 score"""
     pred_tokens = set(tokenize_text(pred.strip(), is_chinese))
     gold_tokens = set(tokenize_text(gold.strip(), is_chinese))
     
     if not pred_tokens and not gold_tokens:
         return 1.0
     
-    # 计算精确率和召回率
+    # Calculate precision and recall
     precision = len(pred_tokens.intersection(gold_tokens)) / len(pred_tokens) if pred_tokens else 0.0
     recall = len(pred_tokens.intersection(gold_tokens)) / len(gold_tokens) if gold_tokens else 0.0
     
-    # 计算F1分数
+    # Calculate F1 score
     if precision + recall == 0:
         return 0.0
     else:
         return 2 * precision * recall / (precision + recall)
 
-# 计算BLEU分数
+# Calculate BLEU score
 def calculate_bleu(pred: str, gold: str, is_chinese: bool = False) -> float:
-    """计算BLEU分数"""
+    """Calculate BLEU score"""
     pred_tokens = tokenize_text(pred.strip(), is_chinese)
     gold_tokens = [tokenize_text(gold.strip(), is_chinese)]
     
     if not pred_tokens:
         return 0.0
     
-    # 使用平滑函数避免除零错误
+    # Use smoothing function to avoid division by zero error
     smooth_fn = SmoothingFunction().method1
     try:
         return sentence_bleu(gold_tokens, pred_tokens, smoothing_function=smooth_fn)
     except Exception as e:
-        logger.warning(f"BLEU计算错误: {e}")
+        logger.warning(f"BLEU calculation error: {e}")
         return 0.0
 
 metric_func = {
@@ -79,19 +79,19 @@ metric_func = {
 
 
 class GenEvalActor:
-    """评测生成结果的Ray Actor"""
+    """Ray Actor for evaluating generation results"""
     
     def __init__(self, is_chinese: bool = False):
-        # 初始化评测器
+        # Initialize evaluator
         self.is_chinese = is_chinese
     
     def __call__(self, row: Dict[str, Any]) -> Dict[str, Any]:
-        """评测单条生成结果"""
+        """Evaluate single generation result"""
         try:
             pred = row.get("generated_text", "").strip()
             gold = row.get("answer", "").strip()
             
-            # 计算各项指标
+            # Calculate all metrics
             row["exact_match"] = calculate_exact_match(pred, gold)
             row["f1_score"] = calculate_f1(pred, gold)
             row["bleu_score"] = calculate_bleu(pred, gold)
@@ -99,7 +99,7 @@ class GenEvalActor:
             return row
             
         except Exception as e:
-            logger.error(f"评测过程中发生错误: {e}")
+            logger.error(f"Error during evaluation: {e}")
             row["exact_match"] = 0.0
             row["f1_score"] = 0.0
             row["bleu_score"] = 0.0
@@ -108,30 +108,30 @@ class GenEvalActor:
 
 
 def batch_evaluate(data: List[Dict[str, Any]], num_cpus: int = 4) -> List[Dict[str, Any]]:
-    """批量评测生成结果"""
-    # 启动本地Ray集群
+    """Batch evaluate generation results"""
+    # Start local Ray cluster
     ray.init(num_cpus=num_cpus)
     
-    # 创建Actor实例
+    # Create Actor instances
     eval_actors = [GenEvalActor.remote() for _ in range(num_cpus)]
     
-    # 分发任务
+    # Distribute tasks
     results = []
     for i, row in enumerate(data):
         actor = eval_actors[i % num_cpus]
         results.append(actor.__call__.remote(row))
     
-    # 收集结果
+    # Collect results
     results = ray.get(results)
     
-    # 关闭Ray集群
+    # Shutdown Ray cluster
     ray.shutdown()
     
     return results
 
 
 def eval_generation_data(data: DataFrame, debug: bool = False, verbose: bool = True, is_chinese: bool = False) -> DataFrame:
-    """评测生成数据"""
+    """Evaluate generation data"""
     if debug:
         data = data.head(10)
     metrics = ["exact_match", "f1_score", "bleu_score"]
@@ -158,7 +158,7 @@ def eval_generation_data(data: DataFrame, debug: bool = False, verbose: bool = T
 
 
 if __name__ == "__main__":
-    # 示例用法
+    # Example usage
     sample_data = [
         {
             "generated_text": "The capital of China is Beijing.",
@@ -170,7 +170,7 @@ if __name__ == "__main__":
         }
     ]
     
-    # 评测结果
+    # Evaluation results
     df = pd.DataFrame(sample_data)
     results = eval_generation_data(df, verbose=True, is_chinese=False)
 
@@ -185,6 +185,6 @@ if __name__ == "__main__":
         }
     ]
 
-    # 评测结果
+    # Evaluation results
     df = pd.DataFrame(chinese_sample_data)
     results = eval_generation_data(df, verbose=True, is_chinese=True)
