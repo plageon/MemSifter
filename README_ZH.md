@@ -1,274 +1,292 @@
+# MemSifter: 基于结果驱动代理推理的 LLM 记忆检索卸载系统
+
+<div align="center">
+<a href="https://arxiv.org/abs/xxxx" target="_blank"><img src=https://img.shields.io/badge/arXiv-b5212f.svg?logo=arxiv></a>
+<a href="https://huggingface.co/collections/MemSifter" target="_blank"><img src=https://img.shields.io/badge/%F0%9F%A4%97%20HuggingFace%20Models-27b3b4.svg></a>
+<a href="https://www.modelscope.cn/models/zstanjj/MemSifter-4B-Thinking" target="_blank"><img src=https://custom-icon-badges.demolab.com/badge/ModelScope%20Models-624aff?style=flat&logo=modelscope&logoColor=white></a>
+<a href="https://github.com/plageon/MemSifter/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/LICENSE-MIT-green"></a>
+<a><img alt="Static Badge" src="https://img.shields.io/badge/made_with-Python-blue"></a>
+</div>
+
 [English](README.md) | [中文](README_ZH.md)
 
-# MemSifter: Offloading LLM Memory Retrieval via Outcome-Driven Proxy Reasoning
+## 📖 目录
 
-## 项目简介
+- [项目简介](#-项目简介)
+- [最新动态](#-最新动态)
+- [安装](#-安装)
+- [快速入门](#-快速入门)
+- [复现实验结果](#-复现实验结果)
+- [模型训练](#-模型训练)
+- [引用](#-引用)
 
-MemSifter 是一个基于结果驱动的代理推理的 LLM 内存检索卸载系统。
+## ✨ 项目简介
 
-## 脚本说明
+**MemSifter** 是一个基于结果驱动代理推理的 LLM 记忆检索卸载系统。给定大量个人对话会话（"大海捞针"场景），MemSifter 能够高效识别与用户查询最相关的会话，并将其作为上下文传递给下游对话 LLM——无需由 LLM 本身承担检索工作。
 
-本项目提供了完整的训练和推理流程脚本，位于 `scripts/` 目录下。
+系统遵循三阶段流水线：
 
-### 推理流程 (scripts/infer/)
-
-推理流程分为三个阶段，按顺序执行：
-
-#### 1. Session Embedding (`session_embedding.sh`)
-使用 embedding 模型（如 bge-m3）计算 session embedding，进行初步过滤。
-
-**功能：**
-- 对多个数据集（locomo, split_longmemeval_s, personamem_128k 等）进行 session embedding 计算
-- 生成 embedding 存储文件，用于后续的相似度检索
-- 支持 train 和 test 数据集的批量处理
-
-**使用方法：**
-```bash
-cd scripts/infer
-./session_embedding.sh
+```
+会话嵌入 (Session Embedding)  →  会话排序 (Session Ranking)  →  对话 LLM
+        (bge-m3)                     (生成式重排序器)              (任意 LLM)
 ```
 
-**环境变量配置：**
-- `EMBEDDING_MODEL_NAME`: embedding 模型名称（默认：bge-m3）
-- `DATA_DIR`: 数据目录（默认：../data）
-- `OUTPUT_DIR`: 输出目录（默认：../data/results）
-- `EMBED_STORE_PATH`: embedding 存储路径（默认：../data/embedding_store）
+1. **会话嵌入** — 使用稠密嵌入模型（bge-m3）对所有会话进行粗粒度相似度预筛选。
+2. **会话排序** — MemSifter 是一个使用 DAPO 强化学习训练的轻量级生成式模型，对预筛选候选项进行细粒度重排序。
+3. **对话 LLM** — 将排名靠前的会话组装成上下文窗口，传递给任意兼容 OpenAI 接口的对话模型，以生成最终答案。
 
-#### 2. Session Ranking (`session_ranking`)
-使用 generative ranking 模型计算精细的 session ranking。
+## 🗞 最新动态
 
-**功能：**
-- 基于 embedding 结果，使用生成式排序模型（如 MemSifter）对 session 进行精细排序
-- 支持 Ray 分布式推理
-- 生成 ranking 结果文件，包含每个 session 的排序分数
+- **[2026/03/03]** 论文已发布于 [arXiv](https://arxiv.org/abs/xxxx)。
+- **[2026/02/20]** 代码、模型与数据正式发布。
 
-**使用方法：**
-```bash
-cd scripts/infer
-./session_ranking
-```
+## 🔧 安装
 
-**环境变量配置：**
-- `MODEL_NAME`: 模型名称（默认：MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80）
-- `RUNTIME_ENV`: Ray 运行时环境配置（默认：./configs/runtime_env.yaml）
-
-#### 3. Chat Inference (`chat_infer.sh`)
-调用 chat LLM 基于排序后的 session 做出最终回答。
-
-**功能：**
-- 使用排序后的 session 作为上下文
-- 调用 LLM API 生成最终回答
-- 支持多个数据集的批量推理
-
-**使用方法：**
-```bash
-cd scripts/infer
-./chat_infer.sh
-```
-
-**环境变量配置：**
-- `MODEL_PATH`: 模型路径
-- `MODEL_NAME`: 模型名称
-- `API_KEY`: API 密钥
-- `BASE_URL`: API 基础 URL
-- `MAX_OUTPUT_TOKEN`: 最大输出 token 数（默认：4096）
-- `TEMPERATURE`: 温度参数（默认：0.6）
-
-### 训练流程 (scripts/train/)
-
-#### 1. RL 训练数据准备 (`prepare_rl_data.sh`)
-从 ranking/embedding 数据中筛选和准备强化学习训练数据。
-
-**功能：**
-- 根据 dataset recipe 配置文件加载数据集
-- 支持 anchor 采样策略（基于 NDCG 分数）和随机采样策略
-- 自动选择主要数据目录或备用数据目录
-- 生成训练和测试数据文件
-
-**使用方法：**
-```bash
-cd scripts/train
-./prepare_rl_data.sh
-```
-
-**环境变量配置：**
-- `RECIPE`: dataset recipe yaml 文件路径（默认：configs/dataset_recipe_deepsearch_v1.yaml）
-- `PRIMARY_DATA_DIR`: 主要数据目录，使用 anchor 采样（默认：../data/results/DAPO-GenRank/ep3-DAPO-Qwen3-4B-Thinking-merged）
-- `FALLBACK_DATA_DIR`: 备用数据目录，使用随机采样（默认：../data/results/bge-m3）
-- `OUTPUT_DIR`: 输出目录（默认：../data）
-- `VERSION`: 版本字符串（默认：自动生成 v{MMDD}-0）
-
-**输出：**
-- 训练数据：`{output_dir}/rl_train_data/{version}/train_{0..N}.parquet`
-- 测试数据：`{output_dir}/rl_train_data/{version}/test.parquet`
-
-#### 2. 主训练脚本 (`qwen3_4b_task_reward.sh`)
-使用 DAPO 算法进行强化学习训练。
-
-**功能：**
-- 使用任务奖励模式训练（Marginal Utility Reward + Rank-Sensitive Reward）
-- 支持多节点分布式训练
-- 自动保存 checkpoint
-
-**使用方法：**
-```bash
-cd scripts/train
-./qwen3_4b_task_reward.sh
-```
-
-**环境变量配置：**
-- `WORKING_DIR`: 工作目录
-- `RUNTIME_ENV`: Ray 运行时环境配置
-- `NNODES`: 节点数量（默认：1）
-- `MODEL_PATH`: 基础模型路径
-- `CKPTS_DIR`: checkpoint 保存目录
-- `TRAIN_FILE`: 训练数据文件路径
-- `TEST_FILE`: 测试数据文件路径
-
-#### 3. 收集 VERL Checkpoint (`collect_verl_ckpt.sh`)
-将 VERL 训练产生的 checkpoint 转换为标准模型格式。
-
-**功能：**
-- 将 VERL 的 FSDP checkpoint 转换为 HuggingFace 格式
-- 支持批量处理多个 checkpoint 步骤
-
-**使用方法：**
-```bash
-cd scripts/train
-./collect_verl_ckpt.sh
-```
-
-**配置：**
-- `project_name`: 项目名称（默认：MemSifter）
-- `exp_name`: 实验名称（默认：ep1-MemSifter-Qwen3-4B-Task-Reward）
-- `ckpt_steps`: checkpoint 步骤数组（默认：20 30 40）
-
-#### 4. 合并 Checkpoint (`merge_ckpts.sh`)
-将多个 checkpoint 的权重进行平均合并。
-
-**功能：**
-- 加载多个 checkpoint 模型
-- 计算平均权重（使用 Float32 高精度计算）
-- 保存合并后的模型
-
-**使用方法：**
-```bash
-cd scripts/train
-./merge_ckpts.sh
-```
-
-**环境变量配置：**
-- `PROJECT_NAME`: 项目名称（默认：MemSifter）
-- `MODEL_NAME`: 模型名称（默认：MemSifter-Qwen3-4B-Task-Reward）
-- `MODEL_DIR`: 模型目录（默认：../models/MemSifter）
-- `CKPT_STEPS`: checkpoint 步骤，空格分隔（默认：20 30 40）
-
-**示例：**
-```bash
-export CKPT_STEPS="50 60 70"
-export MODEL_NAME="MyModel-Name"
-./merge_ckpts.sh
-```
-
-**输出：**
-- 合并后的模型保存在：`{model_dir}/{model_name}-merged`
-
-## 工作流程
-
-### 完整训练流程
-
-1. **数据准备**
-   ```bash
-   # 1. 计算 session embedding（初步过滤）
-   cd scripts/infer
-   ./session_embedding.sh
-   
-   # 2. 计算 session ranking（精细排序）
-   ./session_ranking
-   
-   # 3. 准备 RL 训练数据
-   cd ../train
-   ./prepare_rl_data.sh
-   ```
-
-2. **模型训练**
-   ```bash
-   # 使用 DAPO 算法训练
-   ./qwen3_4b_task_reward.sh
-   ```
-
-3. **模型后处理**
-   ```bash
-   # 收集 checkpoint
-   ./collect_verl_ckpt.sh
-   
-   # 合并 checkpoint（可选）
-   ./merge_ckpts.sh
-   ```
-
-### 完整推理流程
-
-1. **Session Embedding** → 2. **Session Ranking** → 3. **Chat Inference**
-
-按顺序执行 `scripts/infer/` 目录下的三个脚本即可。
-
-## 环境配置
-
-### Python 环境
-
-本项目需要 Python 3.8 或更高版本。
-
-#### 1. 安装依赖
+**环境要求：** Python 3.8+，两块支持 CUDA 的 GPU（用于快速入门的单样本推理）。
 
 ```bash
+git clone https://github.com/plageon/MemSifter.git
+cd MemSifter
 pip install -r requirements.txt
 ```
 
-#### 2. 启动 Ray 集群
+将所需模型下载到本地 `models/` 目录：
 
-在开始训练或推理之前，需要启动 Ray 集群。对于单机环境，可以使用以下命令启动 head 节点：
+| 模型 | 用途 | 来源 |
+|---|---|---|
+| `bge-m3` | 会话嵌入 | [HuggingFace](https://huggingface.co/BAAI/bge-m3) |
+| `MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80` | 生成式会话排序器 | [HuggingFace](https://huggingface.co/zstanjj/MemSifter-4B-Thinking) |
+
+```bash
+# 使用 huggingface-cli 下载示例
+huggingface-cli download BAAI/bge-m3 --local-dir models/bge-m3
+huggingface-cli download MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80 \
+    --local-dir models/MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80
+```
+
+## 🚀 快速入门
+
+`memsifter/toolkit.py` 中的工具包提供了三个类，用于**无需 Ray 依赖**的单样本推理。假设你有两块 GPU：嵌入模型运行在 `cuda:0`，MemSifter 排序器运行在 `cuda:1`。
+
+```python
+import json
+from memsifter.toolkit import SessionEmbedder, SessionRanker, LLMChat
+
+# 加载一个样本并解包所有字段
+with open("data/test_memory.json") as f:
+    entry = json.load(f)[0]
+
+question             = entry["question"]
+haystack_sessions    = entry["haystack_sessions"]
+haystack_dates       = entry["haystack_dates"]
+haystack_session_ids = entry["haystack_session_ids"]
+answer_session_ids   = entry["answer_session_ids"]
+
+# 初始化模型（加载一次，可复用）
+embedder = SessionEmbedder(model_path="models/bge-m3", device="cuda:0")
+ranker   = SessionRanker(
+    model_path="models/MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80",
+    device="cuda:1",
+)
+chat = LLMChat(api_key="YOUR_KEY", base_url="YOUR_BASE_URL", model_name="YOUR_MODEL")
+
+# 阶段 1 — 嵌入预筛选
+top_sessions = embedder.get_top_sessions(
+    question=question, sessions=haystack_sessions, dates=haystack_dates, top_k=20
+)
+
+# 阶段 2 — 生成式重排序
+ranked_sessions = ranker.rerank(
+    question=question, pre_ranked_sessions=top_sessions, top_k=5
+)
+
+# 阶段 3 — LLM 生成答案
+predicted_answer = chat.answer(question=question, ranked_sessions=ranked_sessions)
+
+print("问题：", question)
+print("答案：", predicted_answer)
+```
+
+### 输入数据格式
+
+`data/test_memory.json` 中每条数据包含以下字段：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `question` | `str` | 用户查询 |
+| `haystack_sessions` | `List[List[dict]]` | 所有候选会话；每个会话是由 `{"role": ..., "content": ...}` 组成的轮次列表 |
+| `haystack_dates` | `List[str]` | 每个会话的时间戳 |
+| `haystack_session_ids` | `List[str]` | 每个会话的唯一 ID |
+| `answer` | `str` | 标准答案（仅用于评估） |
+| `answer_session_ids` | `List[str]` | 包含答案的会话 ID（仅用于评估） |
+
+### Toolkit API 简介
+
+**`SessionEmbedder(model_path, device="cuda:0")`**
+- `get_top_sessions(question, sessions, dates=None, top_k=20)` → `List[(idx, session_turns, date, score)]`
+
+**`SessionRanker(model_path, device="cuda:1")`**
+- `rerank(question, pre_ranked_sessions, top_k=5)` → `List[(idx, session_turns, date)]`
+
+**`LLMChat(api_key, base_url, model_name)`**
+- `answer(question, ranked_sessions)` → `str`
+
+## 📊 复现实验结果
+
+本节介绍如何使用已发布的 MemSifter 检查点对所有基准数据集进行批量推理。批量推理流水线使用 Ray 进行分布式多 GPU 推理。
+
+### 前置条件
+
+运行脚本前，请先启动 Ray 集群：
 
 ```bash
 ray start --head
 ```
 
-这将启动一个 Ray 集群的 head 节点。如果需要连接到远程 Ray 集群，可以使用：
+设置所需的环境变量：
 
 ```bash
-ray start --address=<head-node-address>:<port>
+export API_KEY="YOUR_LLM_API_KEY"
+export BASE_URL="YOUR_LLM_BASE_URL"
+export CUDA_VISIBLE_DEVICES=0,1
 ```
 
-停止 Ray 集群：
+### 步骤 1 — 会话嵌入
+
+计算基准数据集中所有会话的 bge-m3 嵌入，并存储相似度分数。
+
+```bash
+cd scripts/infer
+./session_embedding.sh
+```
+
+关键变量（在脚本内编辑或运行前导出）：
+
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `EMBEDDING_MODEL_NAME` | `bge-m3` | `models/` 下的嵌入模型名称 |
+| `DATA_DIR` | `../data` | 根数据目录 |
+| `OUTPUT_DIR` | `../data/results` | 嵌入结果保存路径 |
+| `EMBED_STORE_PATH` | `../data/embedding_store` | 持久化嵌入缓存路径 |
+
+### 步骤 2 — 会话排序
+
+对嵌入预筛选后的候选项运行 MemSifter 生成式排序器。
+
+```bash
+cd scripts/infer
+./session_ranking.sh
+```
+
+关键变量：
+
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `MODEL_NAME` | `MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80` | `models/` 下的 MemSifter 检查点名称 |
+| `RUNTIME_ENV` | `./configs/runtime_env.yaml` | Ray 运行时环境配置 |
+
+### 步骤 3 — 对话推理
+
+将排序后的会话传递给对话 LLM，收集生成的答案。
+
+```bash
+cd scripts/infer
+./chat_infer.sh
+```
+
+关键变量：
+
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `MODEL_NAME` | — | 对话模型名称（传递给 API） |
+| `MODEL_PATH` | — | 本地模型路径（用于 tokenizer） |
+| `API_KEY` | — | LLM API 密钥 |
+| `BASE_URL` | — | LLM API 基础 URL |
+| `MAX_OUTPUT_TOKEN` | `4096` | 最大生成 token 数 |
+| `TEMPERATURE` | `0.6` | 采样温度 |
+
+推理完成后停止 Ray：
 
 ```bash
 ray stop
 ```
 
-#### 3. 环境变量配置
+## 🏋️ 模型训练
 
-根据不同的脚本，可能需要设置以下环境变量：
+本节介绍如何在自定义数据上训练你自己的 MemSifter 排序器。
 
-- `API_KEY`: OpenAI API 密钥（用于 chat inference）
-- `BASE_URL`: API 基础 URL
-- `CUDA_VISIBLE_DEVICES`: 指定使用的 GPU 设备
-- `RAY_ADDRESS`: Ray 集群地址（如果使用远程集群）
+### 步骤 1 — 准备强化学习训练数据
 
-### 依赖包
+首先在自己的数据集上运行嵌入和排序步骤（参见[复现实验结果](#-复现实验结果)），然后准备 DAPO 训练数据：
 
-主要依赖包括：
-- Python 3.8+
-- PyTorch
-- Ray (包含 data, train, tune, serve, llm 扩展)
-- Transformers
-- 其他依赖见 `requirements.txt`
+```bash
+cd scripts/train
+./prepare_rl_data.sh
+```
 
-## 配置说明
+关键变量：
 
-主要配置文件位于 `configs/` 目录：
-- `runtime_env.yaml`: Ray 运行时环境配置
-- `dataset_recipe_*.yaml`: 数据集配方配置
-- `*_prompt.yaml`: Prompt 模板配置
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `RECIPE` | `configs/dataset_recipe_v1.yaml` | 数据集配方 YAML 文件 |
+| `PRIMARY_DATA_DIR` | `../data/results/DAPO-GenRank/...` | 使用锚点采样的数据（基于 NDCG） |
+| `FALLBACK_DATA_DIR` | `../data/results/bge-m3` | 使用随机采样的备用数据 |
+| `OUTPUT_DIR` | `../data` | 输出根目录 |
+| `VERSION` | 自动生成（`v{MMDD}-0`） | 生成数据集的版本标签 |
 
-## 许可证
+输出文件：
+- `{OUTPUT_DIR}/rl_train_data/{VERSION}/train_*.parquet`
+- `{OUTPUT_DIR}/rl_train_data/{VERSION}/test.parquet`
 
-[添加许可证信息]
+### 步骤 2 — DAPO 强化学习训练
+
+```bash
+cd scripts/train
+./qwen3_4b_task_reward.sh
+```
+
+关键变量：
+
+| 变量 | 说明 |
+|---|---|
+| `MODEL_PATH` | 基础模型路径（例如 `Qwen3-4B`） |
+| `CKPTS_DIR` | 检查点保存目录 |
+| `TRAIN_FILE` | 训练 parquet 文件路径 |
+| `TEST_FILE` | 测试 parquet 文件路径 |
+| `NNODES` | 训练节点数（默认：`1`） |
+| `RUNTIME_ENV` | Ray 运行时环境配置 |
+
+训练使用 DAPO 算法的**任务奖励**模式（边际效用奖励 + 排序敏感奖励）。
+
+### 步骤 3 — 转换与合并检查点
+
+**将 VERL 检查点转换为 HuggingFace 格式：**
+
+```bash
+cd scripts/train
+./collect_verl_ckpt.sh
+```
+
+**通过权重平均合并多个检查点步骤（可选但推荐）：**
+
+```bash
+export CKPT_STEPS="20 30 40"
+export MODEL_NAME="MemSifter-Qwen3-4B-Task-Reward"
+./merge_ckpts.sh
+```
+
+合并后的模型保存至 `{MODEL_DIR}/{MODEL_NAME}-merged`。
+
+## 📝 引用
+
+如果你在研究中使用了 MemSifter，请引用：
+
+```bibtex
+@misc{memsifter2025,
+  title     = {MemSifter: Offloading LLM Memory Retrieval via Outcome-Driven Proxy Reasoning},
+  author    = {{Qwen Team}},
+  month     = {February},
+  year      = {2026},
+  url       = {https://github.com/plageon/MemSifter}
+}
+```

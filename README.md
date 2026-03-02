@@ -1,274 +1,292 @@
 # MemSifter: Offloading LLM Memory Retrieval via Outcome-Driven Proxy Reasoning
 
+<div align="center">
+<a href="https://arxiv.org/abs/xxxx" target="_blank"><img src=https://img.shields.io/badge/arXiv-b5212f.svg?logo=arxiv></a>
+<a href="https://huggingface.co/collections/MemSifter" target="_blank"><img src=https://img.shields.io/badge/%F0%9F%A4%97%20HuggingFace%20Models-27b3b4.svg></a>
+<a href="https://www.modelscope.cn/models/zstanjj/MemSifter-4B-Thinking" target="_blank"><img src=https://custom-icon-badges.demolab.com/badge/ModelScope%20Models-624aff?style=flat&logo=modelscope&logoColor=white></a>
+<a href="https://github.com/plageon/MemSifter/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/LICENSE-MIT-green"></a>
+<a><img alt="Static Badge" src="https://img.shields.io/badge/made_with-Python-blue"></a>
+</div>
+
 [English](README.md) | [中文](README_ZH.md)
 
-## Project Introduction
+## 📖 Table of Contents
 
-MemSifter is an LLM memory retrieval offloading system based on outcome-driven proxy reasoning.
+- [Introduction](#-introduction)
+- [Latest News](#-latest-news)
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [Reproduce Results](#-reproduce-results)
+- [Training](#-training)
+- [Citation](#-citation)
 
-## Scripts Overview
+## ✨ Introduction
 
-This project provides complete training and inference workflow scripts located in the `scripts/` directory.
+**MemSifter** is an LLM memory retrieval offloading system based on outcome-driven proxy reasoning.  Given a large pool of personal conversation sessions (the "haystack"), MemSifter efficiently identifies the sessions most relevant to a user query and passes them as context to a downstream chat LLM—without burdening the LLM itself with retrieval.
 
-### Inference Workflow (scripts/infer/)
+The system follows a three-stage pipeline:
 
-The inference workflow consists of three stages, executed in order:
-
-#### 1. Session Embedding (`session_embedding.sh`)
-Computes session embeddings using an embedding model (e.g., bge-m3) for initial filtering.
-
-**Features:**
-- Computes session embeddings for multiple datasets (locomo, split_longmemeval_s, personamem_128k, etc.)
-- Generates embedding storage files for subsequent similarity retrieval
-- Supports batch processing of train and test datasets
-
-**Usage:**
-```bash
-cd scripts/infer
-./session_embedding.sh
+```
+Session Embedding  →  Session Ranking (MemSifter)  →  Chat LLM
+   (bge-m3)           (generative reranker)          (any LLM)
 ```
 
-**Environment Variables:**
-- `EMBEDDING_MODEL_NAME`: Embedding model name (default: bge-m3)
-- `DATA_DIR`: Data directory (default: ../data)
-- `OUTPUT_DIR`: Output directory (default: ../data/results)
-- `EMBED_STORE_PATH`: Embedding storage path (default: ../data/embedding_store)
+1. **Session Embedding** — a dense embedding model (bge-m3) performs a coarse similarity pre-filter across all sessions.
+2. **Session Ranking** — MemSifter, a lightweight generative model trained with DAPO reinforcement learning, performs fine-grained reranking of the pre-filtered candidates.
+3. **Chat LLM** — the top-ranked sessions are assembled into a context window and passed to any OpenAI-compatible chat model to produce the final answer.
 
-#### 2. Session Ranking (`session_ranking`)
-Computes fine-grained session ranking using a generative ranking model.
+## 🗞 Latest News
 
-**Features:**
-- Uses generative ranking model (e.g., MemSifter) to perform fine-grained ranking of sessions based on embedding results
-- Supports Ray distributed inference
-- Generates ranking result files containing ranking scores for each session
+- **[03/03/2026]** Our paper is available on [arXiv](https://arxiv.org/abs/xxxx).
+- **[20/02/2026]** Code, models, and data are released.
 
-**Usage:**
-```bash
-cd scripts/infer
-./session_ranking
-```
+## 🔧 Installation
 
-**Environment Variables:**
-- `MODEL_NAME`: Model name (default: MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80)
-- `RUNTIME_ENV`: Ray runtime environment configuration (default: ./configs/runtime_env.yaml)
-
-#### 3. Chat Inference (`chat_infer.sh`)
-Calls chat LLM to generate final answers based on ranked sessions.
-
-**Features:**
-- Uses ranked sessions as context
-- Calls LLM API to generate final answers
-- Supports batch inference for multiple datasets
-
-**Usage:**
-```bash
-cd scripts/infer
-./chat_infer.sh
-```
-
-**Environment Variables:**
-- `MODEL_PATH`: Model path
-- `MODEL_NAME`: Model name
-- `API_KEY`: API key
-- `BASE_URL`: API base URL
-- `MAX_OUTPUT_TOKEN`: Maximum output tokens (default: 4096)
-- `TEMPERATURE`: Temperature parameter (default: 0.6)
-
-### Training Workflow (scripts/train/)
-
-#### 1. RL Training Data Preparation (`prepare_rl_data.sh`)
-Filters and prepares reinforcement learning training data from ranking/embedding data.
-
-**Features:**
-- Loads datasets according to dataset recipe configuration file
-- Supports anchor sampling strategy (based on NDCG score) and random sampling strategy
-- Automatically selects primary data directory or fallback data directory
-- Generates training and test data files
-
-**Usage:**
-```bash
-cd scripts/train
-./prepare_rl_data.sh
-```
-
-**Environment Variables:**
-- `RECIPE`: Dataset recipe yaml file path (default: configs/dataset_recipe_deepsearch_v1.yaml)
-- `PRIMARY_DATA_DIR`: Primary data directory, uses anchor sampling (default: ../data/results/DAPO-GenRank/ep3-DAPO-Qwen3-4B-Thinking-merged)
-- `FALLBACK_DATA_DIR`: Fallback data directory, uses random sampling (default: ../data/results/bge-m3)
-- `OUTPUT_DIR`: Output directory (default: ../data)
-- `VERSION`: Version string (default: auto-generate v{MMDD}-0)
-
-**Output:**
-- Training data: `{output_dir}/rl_train_data/{version}/train_{0..N}.parquet`
-- Test data: `{output_dir}/rl_train_data/{version}/test.parquet`
-
-#### 2. Main Training Script (`qwen3_4b_task_reward.sh`)
-Performs reinforcement learning training using DAPO algorithm.
-
-**Features:**
-- Trains using task reward mode (Marginal Utility Reward + Rank-Sensitive Reward)
-- Supports multi-node distributed training
-- Automatically saves checkpoints
-
-**Usage:**
-```bash
-cd scripts/train
-./qwen3_4b_task_reward.sh
-```
-
-**Environment Variables:**
-- `WORKING_DIR`: Working directory
-- `RUNTIME_ENV`: Ray runtime environment configuration
-- `NNODES`: Number of nodes (default: 1)
-- `MODEL_PATH`: Base model path
-- `CKPTS_DIR`: Checkpoint save directory
-- `TRAIN_FILE`: Training data file path
-- `TEST_FILE`: Test data file path
-
-#### 3. Collect VERL Checkpoint (`collect_verl_ckpt.sh`)
-Converts VERL training checkpoints to standard model format.
-
-**Features:**
-- Converts VERL's FSDP checkpoint to HuggingFace format
-- Supports batch processing of multiple checkpoint steps
-
-**Usage:**
-```bash
-cd scripts/train
-./collect_verl_ckpt.sh
-```
-
-**Configuration:**
-- `project_name`: Project name (default: MemSifter)
-- `exp_name`: Experiment name (default: ep1-MemSifter-Qwen3-4B-Task-Reward)
-- `ckpt_steps`: Checkpoint steps array (default: 20 30 40)
-
-#### 4. Merge Checkpoints (`merge_ckpts.sh`)
-Averages and merges weights from multiple checkpoints.
-
-**Features:**
-- Loads multiple checkpoint models
-- Computes average weights (using Float32 high precision)
-- Saves merged model
-
-**Usage:**
-```bash
-cd scripts/train
-./merge_ckpts.sh
-```
-
-**Environment Variables:**
-- `PROJECT_NAME`: Project name (default: MemSifter)
-- `MODEL_NAME`: Model name (default: MemSifter-Qwen3-4B-Task-Reward)
-- `MODEL_DIR`: Model directory (default: ../models/MemSifter)
-- `CKPT_STEPS`: Checkpoint steps, space-separated (default: 20 30 40)
-
-**Example:**
-```bash
-export CKPT_STEPS="50 60 70"
-export MODEL_NAME="MyModel-Name"
-./merge_ckpts.sh
-```
-
-**Output:**
-- Merged model saved at: `{model_dir}/{model_name}-merged`
-
-## Workflow
-
-### Complete Training Workflow
-
-1. **Data Preparation**
-   ```bash
-   # 1. Compute session embedding (initial filtering)
-   cd scripts/infer
-   ./session_embedding.sh
-   
-   # 2. Compute session ranking (fine-grained ranking)
-   ./session_ranking
-   
-   # 3. Prepare RL training data
-   cd ../train
-   ./prepare_rl_data.sh
-   ```
-
-2. **Model Training**
-   ```bash
-   # Train using DAPO algorithm
-   ./qwen3_4b_task_reward.sh
-   ```
-
-3. **Model Post-processing**
-   ```bash
-   # Collect checkpoints
-   ./collect_verl_ckpt.sh
-   
-   # Merge checkpoints (optional)
-   ./merge_ckpts.sh
-   ```
-
-### Complete Inference Workflow
-
-1. **Session Embedding** → 2. **Session Ranking** → 3. **Chat Inference**
-
-Execute the three scripts in the `scripts/infer/` directory in order.
-
-## Environment Configuration
-
-### Python Environment
-
-This project requires Python 3.8 or higher.
-
-#### 1. Install Dependencies
+**Requirements:** Python 3.8+, two CUDA-capable GPUs (for Quick Start single-sample inference).
 
 ```bash
+git clone https://github.com/plageon/MemSifter.git
+cd MemSifter
 pip install -r requirements.txt
 ```
 
-#### 2. Start Ray Cluster
+Download the required models into a local `models/` directory:
 
-Before starting training or inference, you need to start a Ray cluster. For a single-machine environment, you can start a head node using:
+| Model | Purpose | Source |
+|---|---|---|
+| `bge-m3` | Session embedding | [HuggingFace](https://huggingface.co/BAAI/bge-m3) |
+| `MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80` | Generative session ranker | [HuggingFace](https://huggingface.co/zstanjj/MemSifter-4B-Thinking) |
+
+```bash
+# Example using huggingface-cli
+huggingface-cli download BAAI/bge-m3 --local-dir models/bge-m3
+huggingface-cli download MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80 \
+    --local-dir models/MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80
+```
+
+## 🚀 Quick Start
+
+The toolkit in `memsifter/toolkit.py` provides three classes for single-sample inference with **no Ray dependency**.  It assumes you have two GPUs: the embedding model runs on `cuda:0` and the MemSifter ranker runs on `cuda:1`.
+
+```python
+import json
+from memsifter.toolkit import SessionEmbedder, SessionRanker, LLMChat
+
+# Load one sample and unpack all fields
+with open("data/test_memory.json") as f:
+    entry = json.load(f)[0]
+
+question             = entry["question"]
+haystack_sessions    = entry["haystack_sessions"]
+haystack_dates       = entry["haystack_dates"]
+haystack_session_ids = entry["haystack_session_ids"]
+answer_session_ids   = entry["answer_session_ids"]
+
+# Initialise models (loaded once, reusable)
+embedder = SessionEmbedder(model_path="models/bge-m3", device="cuda:0")
+ranker   = SessionRanker(
+    model_path="models/MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80",
+    device="cuda:1",
+)
+chat = LLMChat(api_key="YOUR_KEY", base_url="YOUR_BASE_URL", model_name="YOUR_MODEL")
+
+# Stage 1 — embedding pre-filter
+top_sessions = embedder.get_top_sessions(
+    question=question, sessions=haystack_sessions, dates=haystack_dates, top_k=20
+)
+
+# Stage 2 — generative reranking
+ranked_sessions = ranker.rerank(
+    question=question, pre_ranked_sessions=top_sessions, top_k=5
+)
+
+# Stage 3 — LLM answer
+predicted_answer = chat.answer(question=question, ranked_sessions=ranked_sessions)
+
+print("Question:", question)
+print("Answer:  ", predicted_answer)
+```
+
+### Input data format
+
+Each entry in `data/test_memory.json` has the following fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `question` | `str` | User query |
+| `haystack_sessions` | `List[List[dict]]` | All candidate sessions; each session is a list of `{"role": ..., "content": ...}` turns |
+| `haystack_dates` | `List[str]` | Timestamp for each session |
+| `haystack_session_ids` | `List[str]` | Unique ID for each session |
+| `answer` | `str` | Ground-truth answer (evaluation only) |
+| `answer_session_ids` | `List[str]` | IDs of sessions containing the answer (evaluation only) |
+
+### Toolkit API summary
+
+**`SessionEmbedder(model_path, device="cuda:0")`**
+- `get_top_sessions(question, sessions, dates=None, top_k=20)` → `List[(idx, session_turns, date, score)]`
+
+**`SessionRanker(model_path, device="cuda:1")`**
+- `rerank(question, pre_ranked_sessions, top_k=5)` → `List[(idx, session_turns, date)]`
+
+**`LLMChat(api_key, base_url, model_name)`**
+- `answer(question, ranked_sessions)` → `str`
+
+## 📊 Reproduce Results
+
+This section covers batch inference across all benchmark datasets using the released MemSifter checkpoint.  The batch pipeline uses Ray for distributed multi-GPU inference.
+
+### Prerequisites
+
+Start a Ray cluster before running the scripts:
 
 ```bash
 ray start --head
 ```
 
-This will start a head node of a Ray cluster. If you need to connect to a remote Ray cluster, you can use:
+Set the required environment variables:
 
 ```bash
-ray start --address=<head-node-address>:<port>
+export API_KEY="YOUR_LLM_API_KEY"
+export BASE_URL="YOUR_LLM_BASE_URL"
+export CUDA_VISIBLE_DEVICES=0,1
 ```
 
-To stop the Ray cluster:
+### Step 1 — Session Embedding
+
+Computes bge-m3 embeddings for all sessions in the benchmark datasets and stores similarity scores.
+
+```bash
+cd scripts/infer
+./session_embedding.sh
+```
+
+Key variables (edit inside the script or export before running):
+
+| Variable | Default | Description |
+|---|---|---|
+| `EMBEDDING_MODEL_NAME` | `bge-m3` | Embedding model name under `models/` |
+| `DATA_DIR` | `../data` | Root data directory |
+| `OUTPUT_DIR` | `../data/results` | Where to save embedding results |
+| `EMBED_STORE_PATH` | `../data/embedding_store` | Persistent embedding cache |
+
+### Step 2 — Session Ranking
+
+Runs the MemSifter generative ranker over the embedding-pre-filtered candidates.
+
+```bash
+cd scripts/infer
+./session_ranking.sh
+```
+
+Key variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `MODEL_NAME` | `MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80` | MemSifter checkpoint name under `models/` |
+| `RUNTIME_ENV` | `./configs/runtime_env.yaml` | Ray runtime environment config |
+
+### Step 3 — Chat Inference
+
+Passes the ranked sessions to a chat LLM and collects the generated answers.
+
+```bash
+cd scripts/infer
+./chat_infer.sh
+```
+
+Key variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `MODEL_NAME` | — | Chat model name (passed to the API) |
+| `MODEL_PATH` | — | Local model path (for tokenizer) |
+| `API_KEY` | — | LLM API key |
+| `BASE_URL` | — | LLM API base URL |
+| `MAX_OUTPUT_TOKEN` | `4096` | Max tokens to generate |
+| `TEMPERATURE` | `0.6` | Sampling temperature |
+
+Stop Ray after inference is complete:
 
 ```bash
 ray stop
 ```
 
-#### 3. Environment Variable Configuration
+## 🏋️ Training
 
-Depending on the script, you may need to set the following environment variables:
+This section describes how to train your own MemSifter ranker on custom data.
 
-- `API_KEY`: OpenAI API key (for chat inference)
-- `BASE_URL`: API base URL
-- `CUDA_VISIBLE_DEVICES`: Specify GPU devices to use
-- `RAY_ADDRESS`: Ray cluster address (if using remote cluster)
+### Step 1 — Prepare RL Training Data
 
-### Dependencies
+Run the embedding and ranking steps on your own datasets first (see [Reproduce Results](#-reproduce-results)), then prepare the DAPO training data:
 
-Main dependencies include:
-- Python 3.8+
-- PyTorch
-- Ray (with data, train, tune, serve, llm extensions)
-- Transformers
-- Other dependencies see `requirements.txt`
+```bash
+cd scripts/train
+./prepare_rl_data.sh
+```
 
-## Configuration
+Key variables:
 
-Main configuration files are located in the `configs/` directory:
-- `runtime_env.yaml`: Ray runtime environment configuration
-- `dataset_recipe_*.yaml`: Dataset recipe configuration
-- `*_prompt.yaml`: Prompt template configuration
+| Variable | Default | Description |
+|---|---|---|
+| `RECIPE` | `configs/dataset_recipe_v1.yaml` | Dataset recipe YAML |
+| `PRIMARY_DATA_DIR` | `../data/results/DAPO-GenRank/...` | Data with anchor sampling (NDCG-based) |
+| `FALLBACK_DATA_DIR` | `../data/results/bge-m3` | Fallback data with random sampling |
+| `OUTPUT_DIR` | `../data` | Output root |
+| `VERSION` | auto (`v{MMDD}-0`) | Version tag for the generated split |
 
-## License
+Outputs:
+- `{OUTPUT_DIR}/rl_train_data/{VERSION}/train_*.parquet`
+- `{OUTPUT_DIR}/rl_train_data/{VERSION}/test.parquet`
 
-[Add license information]
+### Step 2 — DAPO Reinforcement Learning Training
+
+```bash
+cd scripts/train
+./qwen3_4b_task_reward.sh
+```
+
+Key variables:
+
+| Variable | Description |
+|---|---|
+| `MODEL_PATH` | Path to the base model (e.g. `Qwen3-4B`) |
+| `CKPTS_DIR` | Directory to save checkpoints |
+| `TRAIN_FILE` | Path to training parquet |
+| `TEST_FILE` | Path to test parquet |
+| `NNODES` | Number of training nodes (default: `1`) |
+| `RUNTIME_ENV` | Ray runtime environment config |
+
+The training uses **task reward** mode (Marginal Utility Reward + Rank-Sensitive Reward) via the DAPO algorithm.
+
+### Step 3 — Convert & Merge Checkpoints
+
+**Convert VERL checkpoints to HuggingFace format:**
+
+```bash
+cd scripts/train
+./collect_verl_ckpt.sh
+```
+
+**Merge multiple checkpoint steps by weight averaging (optional but recommended):**
+
+```bash
+export CKPT_STEPS="20 30 40"
+export MODEL_NAME="MemSifter-Qwen3-4B-Task-Reward"
+./merge_ckpts.sh
+```
+
+The merged model is saved to `{MODEL_DIR}/{MODEL_NAME}-merged`.
+
+## 📝 Citation
+
+If you use MemSifter in your research, please cite:
+
+```bibtex
+@misc{memsifter2025,
+  title     = {MemSifter: Offloading LLM Memory Retrieval via Outcome-Driven Proxy Reasoning},
+  author    = {{Qwen Team}},
+  month     = {February},
+  year      = {2026},
+  url       = {https://github.com/plageon/MemSifter}
+}
+```
