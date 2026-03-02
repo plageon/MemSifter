@@ -22,7 +22,7 @@ Quick usage::
     answer             = entry["answer"]   # ground-truth, for evaluation
 
     embedder = SessionEmbedder(model_path="models/bge-m3", device="cuda:0")
-    ranker   = SessionRanker(model_path="models/MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80", device="cuda:1")
+    ranker   = SessionRanker(model_path="models/zstanjj/MemSifter-4B-Thinking", device="cuda:1")
     chat     = LLMChat(api_key="YOUR_KEY", base_url="YOUR_BASE_URL", model_name="YOUR_MODEL")
 
     top_sessions    = embedder.get_top_sessions(question=question, sessions=haystack_sessions, dates=haystack_dates, top_k=20)

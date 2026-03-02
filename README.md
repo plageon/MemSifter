@@ -55,13 +55,19 @@ Download the required models into a local `models/` directory:
 | Model | Purpose | Source |
 |---|---|---|
 | `bge-m3` | Session embedding | [HuggingFace](https://huggingface.co/BAAI/bge-m3) |
-| `MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80` | Generative session ranker | [HuggingFace](https://huggingface.co/zstanjj/MemSifter-4B-Thinking) |
+| `zstanjj/MemSifter-4B-Thinking` | Generative session ranker | [HuggingFace](https://huggingface.co/zstanjj/MemSifter-4B-Thinking) |
 
 ```bash
 # Example using huggingface-cli
 huggingface-cli download BAAI/bge-m3 --local-dir models/bge-m3
-huggingface-cli download MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80 \
-    --local-dir models/MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80
+huggingface-cli download zstanjj/MemSifter-4B-Thinking \
+    --local-dir models/zstanjj/MemSifter-4B-Thinking
+```
+
+For the Quick Start single-sample inference (no Ray), install only the required packages:
+
+```bash
+pip install torch sentence-transformers vllm openai pyyaml loguru numpy pandas
 ```
 
 ## 🚀 Quick Start
@@ -85,7 +91,7 @@ answer_session_ids   = entry["answer_session_ids"]
 # Initialise models (loaded once, reusable)
 embedder = SessionEmbedder(model_path="models/bge-m3", device="cuda:0")
 ranker   = SessionRanker(
-    model_path="models/MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80",
+    model_path="models/zstanjj/MemSifter-4B-Thinking",
     device="cuda:1",
 )
 chat = LLMChat(api_key="YOUR_KEY", base_url="YOUR_BASE_URL", model_name="YOUR_MODEL")
@@ -182,7 +188,7 @@ Key variables:
 
 | Variable | Default | Description |
 |---|---|---|
-| `MODEL_NAME` | `MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80` | MemSifter checkpoint name under `models/` |
+| `MODEL_NAME` | `zstanjj/MemSifter-4B-Thinking` | MemSifter checkpoint name under `models/` |
 | `RUNTIME_ENV` | `./configs/runtime_env.yaml` | Ray runtime environment config |
 
 ### Step 3 — Chat Inference

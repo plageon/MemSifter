@@ -55,13 +55,19 @@ pip install -r requirements.txt
 | 模型 | 用途 | 来源 |
 |---|---|---|
 | `bge-m3` | 会话嵌入 | [HuggingFace](https://huggingface.co/BAAI/bge-m3) |
-| `MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80` | 生成式会话排序器 | [HuggingFace](https://huggingface.co/zstanjj/MemSifter-4B-Thinking) |
+| `zstanjj/MemSifter-4B-Thinking` | 生成式会话排序器 | [HuggingFace](https://huggingface.co/zstanjj/MemSifter-4B-Thinking) |
 
 ```bash
 # 使用 huggingface-cli 下载示例
 huggingface-cli download BAAI/bge-m3 --local-dir models/bge-m3
-huggingface-cli download MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80 \
-    --local-dir models/MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80
+huggingface-cli download zstanjj/MemSifter-4B-Thinking \
+    --local-dir models/zstanjj/MemSifter-4B-Thinking
+```
+
+如仅运行快速入门的单样本推理（无需 Ray），可只安装以下最小依赖：
+
+```bash
+pip install torch sentence-transformers vllm openai pyyaml loguru numpy pandas
 ```
 
 ## 🚀 快速入门
@@ -85,7 +91,7 @@ answer_session_ids   = entry["answer_session_ids"]
 # 初始化模型（加载一次，可复用）
 embedder = SessionEmbedder(model_path="models/bge-m3", device="cuda:0")
 ranker   = SessionRanker(
-    model_path="models/MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80",
+    model_path="models/zstanjj/MemSifter-4B-Thinking",
     device="cuda:1",
 )
 chat = LLMChat(api_key="YOUR_KEY", base_url="YOUR_BASE_URL", model_name="YOUR_MODEL")
@@ -182,7 +188,7 @@ cd scripts/infer
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `MODEL_NAME` | `MemSifter/ep1-DAPO-Qwen3-4B-Task-Reward-step-80` | `models/` 下的 MemSifter 检查点名称 |
+| `MODEL_NAME` | `zstanjj/MemSifter-4B-Thinking` | `models/` 下的 MemSifter 检查点名称 |
 | `RUNTIME_ENV` | `./configs/runtime_env.yaml` | Ray 运行时环境配置 |
 
 ### 步骤 3 — 对话推理
