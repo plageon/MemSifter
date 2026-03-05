@@ -1,7 +1,7 @@
 # MemSifter: Offloading LLM Memory Retrieval via Outcome-Driven Proxy Reasoning
 
 <div align="center">
-<a href="https://arxiv.org/abs/xxxx" target="_blank"><img src=https://img.shields.io/badge/arXiv-b5212f.svg?logo=arxiv></a>
+<a href="https://arxiv.org/abs/2603.03379" target="_blank"><img src=https://img.shields.io/badge/arXiv-b5212f.svg?logo=arxiv></a>
 <a href="https://huggingface.co/zstanjj/MemSifter-4B-Thinking" target="_blank"><img src=https://img.shields.io/badge/%F0%9F%A4%97%20HuggingFace%20Models-27b3b4.svg></a>
 <a href="https://www.modelscope.cn/models/zstanjj/MemSifter-4B-Thinking" target="_blank"><img src=https://custom-icon-badges.demolab.com/badge/ModelScope%20Models-624aff?style=flat&logo=modelscope&logoColor=white></a>
 <a href="https://github.com/plageon/MemSifter/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/LICENSE-MIT-green"></a>
@@ -37,7 +37,7 @@ Session Embedding  →  Session Ranking (MemSifter)  →  Chat LLM
 
 ## 🗞 Latest News
 
-- **[03/03/2026]** Our paper is available on [arXiv](https://arxiv.org/abs/xxxx).
+- **[03/03/2026]** Our paper is available on [arXiv](https://arxiv.org/abs/2603.03379).
 - **[20/02/2026]** Code, models, and data are released.
 
 ## 🔧 Installation
@@ -288,11 +288,13 @@ The merged model is saved to `{MODEL_DIR}/{MODEL_NAME}-merged`.
 If you use MemSifter in your research, please cite:
 
 ```bibtex
-@misc{memsifter2025,
-  title     = {MemSifter: Offloading LLM Memory Retrieval via Outcome-Driven Proxy Reasoning},
-  author    = {{Qwen Team}},
-  month     = {February},
-  year      = {2026},
-  url       = {https://github.com/plageon/MemSifter}
+@misc{memsifter,
+      title={MemSifter: Offloading LLM Memory Retrieval via Outcome-Driven Proxy Reasoning}, 
+      author={Jiejun Tan and Zhicheng Dou and Liancheng Zhang and Yuyang Hu and Yiruo Cheng and Ji-Rong Wen},
+      year={2026},
+      eprint={2603.03379},
+      archivePrefix={arXiv},
+      primaryClass={cs.IR},
+      url={https://arxiv.org/abs/2603.03379}, 
 }
 ```

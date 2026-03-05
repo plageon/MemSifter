@@ -1,7 +1,7 @@
 # MemSifter: 基于结果驱动代理推理的 LLM 记忆检索卸载系统
 
 <div align="center">
-<a href="https://arxiv.org/abs/xxxx" target="_blank"><img src=https://img.shields.io/badge/arXiv-b5212f.svg?logo=arxiv></a>
+<a href="https://arxiv.org/abs/2603.03379" target="_blank"><img src=https://img.shields.io/badge/arXiv-b5212f.svg?logo=arxiv></a>
 <a href="https://huggingface.co/zstanjj/MemSifter-4B-Thinking" target="_blank"><img src=https://img.shields.io/badge/%F0%9F%A4%97%20HuggingFace%20Models-27b3b4.svg></a>
 <a href="https://www.modelscope.cn/models/zstanjj/MemSifter-4B-Thinking" target="_blank"><img src=https://custom-icon-badges.demolab.com/badge/ModelScope%20Models-624aff?style=flat&logo=modelscope&logoColor=white></a>
 <a href="https://github.com/plageon/MemSifter/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/LICENSE-MIT-green"></a>
@@ -37,7 +37,7 @@
 
 ## 🗞 最新动态
 
-- **[2026/03/03]** 论文已发布于 [arXiv](https://arxiv.org/abs/xxxx)。
+- **[2026/03/03]** 论文已发布于 [arXiv](https://arxiv.org/abs/2603.03379)。
 - **[2026/02/20]** 代码、模型与数据正式发布。
 
 ## 🔧 安装
@@ -288,11 +288,13 @@ export MODEL_NAME="MemSifter-Qwen3-4B-Task-Reward"
 如果你在研究中使用了 MemSifter，请引用：
 
 ```bibtex
-@misc{memsifter2025,
-  title     = {MemSifter: Offloading LLM Memory Retrieval via Outcome-Driven Proxy Reasoning},
-  author    = {{Qwen Team}},
-  month     = {February},
-  year      = {2026},
-  url       = {https://github.com/plageon/MemSifter}
+@misc{memsifter,
+      title={MemSifter: Offloading LLM Memory Retrieval via Outcome-Driven Proxy Reasoning}, 
+      author={Jiejun Tan and Zhicheng Dou and Liancheng Zhang and Yuyang Hu and Yiruo Cheng and Ji-Rong Wen},
+      year={2026},
+      eprint={2603.03379},
+      archivePrefix={arXiv},
+      primaryClass={cs.IR},
+      url={https://arxiv.org/abs/2603.03379}, 
 }
 ```
