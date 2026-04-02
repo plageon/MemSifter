@@ -96,10 +96,6 @@ def vllm_inference(args: Dict[str, Any]):
     results = ds.take_all()
     logger.info(f"Total {ds.count()} entries processed, saved to {output_file}")
 
-    # eval results
-    logger.info(f"Start eval {output_file}")
-    eval_prob_data(results)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
