@@ -141,6 +141,10 @@ Each entry in `data/test_memory.json` has the following fields:
 
 This section covers batch inference across all benchmark datasets using the released MemSifter checkpoint.  The batch pipeline uses Ray for distributed multi-GPU inference.
 
+### Download datasets
+
+https://huggingface.co/datasets/zstanjj/MemSifter-Datasets
+
 ### Prerequisites
 
 Start a Ray cluster before running the scripts:
