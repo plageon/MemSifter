@@ -1,0 +1,34 @@
+version: "0.1"
+prompt_name: "gen_retrieve_instruct_prompt"
+language: "en"
+description: "A prompt template for retrieving and ranking top 10 most relevant historical interaction sessions based on current chat context."
+# --------------------------------------------------------------------------
+# Prompt Configuration: 定义 Prompt 的输入变量和文本内容
+# --------------------------------------------------------------------------
+prompt_template:
+  system_prompt_text: |
+    You are tasked with a relevance-ranking task. Your core goal is to analyze two key inputs—the user's historical interaction information organized by sessions and the current chat context between the user and the AI assistant—then output the top 10 most relevant sessions ranked from highest to lowest relevance.
+
+  user_prompt_text: |
+    Historical Interaction Information:
+    {history}
+    Current Chat Context:
+    {current}
+    You are tasked with a relevance-ranking task. Your core goal is to analyze two key inputs—the user's historical interaction information organized by sessions and the current chat context between the user and the AI assistant—then output the top 10 most relevant sessions ranked from highest to lowest relevance.
+    Please follow these strict guidelines to complete the task:
+      1. Input Definitions
+        Historical Interaction Information: A collection of discrete, time-stamped sessions, each containing multiple interaction segments between the user and the AI (or other systems). Each session is identified by a session tag (e.g., <session1>, <session2>).
+        Current Chat Context: The ongoing real-time conversation between the user and the AI assistant, including all recent messages (user's latest questions/statements + the AI's latest responses, if any). This context reflects the user's current needs, concerns, or topics of interest.
+      2. Relevance Judgment Criteria
+        To determine which sessions are most relevant, focus on the following priority factors (in descending order of importance):
+        Topic Consistency: Whether the core topic(s) of the historical session align with the user's current chat topic.
+        User Need Continuity: Whether the historical session reflects recurring or unresolved user needs related to the current chat.
+        Detail Overlap: Whether key entities, terms, or scenarios in the historical session match those in the current context.
+        Session Completeness: How well the entire session provides context and information relevant to the current query.
+      3. Output Requirements
+        Format: Output the session identifiers of the top 10 most relevant sessions in descending order of relevance, session ids separated by comma, and wrap them with tag <ranking></ranking>. Ensure the final output contains exactly the session identifiers from the provided "Historical Interaction Information"—do not create or modify session identifiers.
+        Accuracy: You should think carefully about the relevance of each session based on the above criteria before ranking them. Wrap your thinking process in `<think>...</think>`.
+        Quantity: Output exactly 10 sessions if available; if fewer than 10 sessions exist, output all available sessions in ranked order.
+        Brief Repeat: During your reasoning process, do not repeat lengthy parts of the original message. If the original message is too long, you can omit some words in the middle by replacing them with ellipsis (...).
+        Example Output Format: <think>Your thinking process</think><ranking>27,13,34,5,12,8,21,45,6,19</ranking>
+    Please analyze the above two inputs and output the top 10 most relevant sessions in descending order of relevance, formatted as specified.
